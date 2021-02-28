@@ -7,6 +7,8 @@ import darknet
 import argparse
 from threading import Thread, enumerate
 from queue import Queue
+import json
+import colour
 
 
 def parser():
@@ -97,7 +99,7 @@ def drawing(frame_queue, detections_queue, fps_queue):
         detections = detections_queue.get()
         fps = fps_queue.get()
         if frame_resized is not None:
-            image = darknet.draw_boxes(detections, frame_resized, class_colors)
+            image = darknet.draw_boxes_team(detections, frame_resized, class_colors, teams)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if args.out_filename is not None:
                 video.write(image)
@@ -126,6 +128,20 @@ if __name__ == '__main__':
         )
     width = darknet.network_width(network)
     height = darknet.network_height(network)
+    
+    # Load team configuration
+    file = open('teams.json')
+    teams = json.loads(file.read())
+    # Conver the team color to CIE L*a*b colour space
+    for team in teams:
+        team['color'] = eval(team['color'])
+        team_color = (team['color'][0] / 255, team['color'][1] / 255, team['color'][2] / 255)
+        team['color_lab'] = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(team_color))
+    
+    # Set width and height for temporarily
+    width = 1920
+    height = 1080
+
     input_path = str2int(args.input)
     cap = cv2.VideoCapture(input_path)
     Thread(target=video_capture, args=(frame_queue, darknet_image_queue)).start()

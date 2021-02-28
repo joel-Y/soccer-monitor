@@ -6,7 +6,8 @@ import darknet
 import time
 import cv2
 import numpy as np
-import darknet
+import json
+import colour
 
 
 def parser():
@@ -116,6 +117,30 @@ def image_detection(image_path, network, class_names, class_colors, thresh):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB), detections
 
 
+def image_detection_team(image_path, network, class_names, class_colors, thresh, teams):
+    # Darknet doesn't accept numpy images.
+    # Create one with image we reuse for each detect
+    width = darknet.network_width(network)
+    height = darknet.network_height(network)
+    
+    # Set width and height for temporarily
+    width = 1920
+    height = 1080
+
+    darknet_image = darknet.make_image(width, height, 3)
+
+    image = cv2.imread(image_path)
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_resized = cv2.resize(image_rgb, (width, height),
+                               interpolation=cv2.INTER_LINEAR)
+
+    darknet.copy_image_from_bytes(darknet_image, image_resized.tobytes())
+    detections = darknet.detect_image(network, class_names, darknet_image, thresh=thresh)
+    darknet.free_image(darknet_image)
+    image = darknet.draw_boxes_team(detections, image_resized, class_colors, teams)
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB), detections
+
+
 def batch_detection(network, images, class_names, class_colors,
                     thresh=0.25, hier_thresh=.5, nms=.45, batch_size=4):
     image_height, image_width, _ = check_batch_shape(images, batch_size)
@@ -202,6 +227,15 @@ def main():
         batch_size=args.batch_size
     )
 
+    # Load team configuration
+    file = open('teams.json')
+    teams = json.loads(file.read())
+    # Conver the team color to CIE L*a*b colour space
+    for team in teams:
+        team['color'] = eval(team['color'])
+        team_color = (team['color'][0] / 255, team['color'][1] / 255, team['color'][2] / 255)
+        team['color_lab'] = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(team_color))
+    
     images = load_images(args.input)
 
     index = 0
@@ -214,8 +248,8 @@ def main():
         else:
             image_name = input("Enter Image Path: ")
         prev_time = time.time()
-        image, detections = image_detection(
-            image_name, network, class_names, class_colors, args.thresh
+        image, detections = image_detection_team(
+            image_name, network, class_names, class_colors, args.thresh, teams
             )
         if args.save_labels:
             save_annotations(image_name, image, detections, class_names)

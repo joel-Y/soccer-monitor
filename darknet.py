@@ -25,6 +25,9 @@ from ctypes import *
 import math
 import random
 import os
+import numpy as np
+import cv2
+import colour
 
 
 class BOX(Structure):
@@ -137,6 +140,57 @@ def draw_boxes(detections, image, colors):
                     (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                     colors[label], 2)
     return image
+
+
+def draw_boxes_team(detections, image, colors, teams):
+    for label, confidence, bbox in detections:
+        left, top, right, bottom = bbox2points(bbox)
+
+        # Detect team
+        if label == 'player':
+            pleft = int(left + (right - left) * 0.2)
+            pright = int(left + (right - left) * 0.8)
+            ptop = int(top + (bottom - top) * 0.1)
+            pbottom = int(top + (bottom - top) * 0.6)
+
+            # Get the image for player's body as similar as possible and calculate color distance between teams respectively
+            player_img = image[ptop:pbottom, pleft:pright]
+            player_color = get_average_rgbn(player_img)
+            player_color = (player_color[0] / 255, player_color[1] / 255, player_color[2] / 255)
+            player_lab = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(player_color))
+
+            delta1 = colour.delta_E(teams[0]['color_lab'], player_lab)
+            delta2 = colour.delta_E(teams[1]['color_lab'], player_lab)
+
+            if delta1 < delta2:
+                label = teams[0]['name']
+                color = teams[0]['color']
+            else:
+                label = teams[1]['name']
+                color = teams[1]['color']
+
+        elif label =='sports ball':
+            color = (255, 255, 0)
+
+        cv2.rectangle(image, (left, top), (right, bottom), color, 1)
+        cv2.putText(image, "{} [{:.2f}]".format(label, float(confidence)),
+                    (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                    color, 2)
+    return image
+
+
+def get_average_rgbn(image):
+    """
+    Given PIL Image, return average value of color as (r, g, b)
+    """
+    # get image as numpy array
+    im = np.array(image)
+    # get shape
+    w,h,d = im.shape
+    # change shape
+    im.shape = (w*h, d)
+    # get average
+    return tuple(im.mean(axis=0))
 
 
 def decode_detection(detections):
