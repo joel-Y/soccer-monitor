@@ -741,44 +741,44 @@ You can refer to the [requirements](#requirements) section above.
 #### Downloading the System
 You can download using following command.
 ```bash
-git clone https://github.com/AlexeyAB/darknet
+git clone https://github.com/spica5/soccer-monitor
 ```
 
 #### Building the System using Make
 1. Open the `Makefile` file and set the flags as follows:
 
-  ** For CPU build **
-  ```ini
-  GPU=0
-  CUDNN=0
-  CUDNN_HALF=0
-  OPENCV=1
-  AVX=1
-  OPENMP=1
-  LIBSO=1  
-  ZED_CAMERA=0
-  ZED_CAMERA_v2_8=0 
-  ```
+** For CPU build **
+```ini
+GPU=0
+CUDNN=0
+CUDNN_HALF=0
+OPENCV=1
+AVX=1
+OPENMP=1
+LIBSO=1  
+ZED_CAMERA=0
+ZED_CAMERA_v2_8=0 
+```
 
-  ** For GPU build **
-  ```ini
-  GPU=1
-  CUDNN=1
-  CUDNN_HALF=1
-  OPENCV=1
-  AVX=0
-  OPENMP=0
-  LIBSO=1  
-  ZED_CAMERA=0 
-  ZED_CAMERA_v2_8=0 
-  ```
+** For GPU build **
+```ini
+GPU=1
+CUDNN=1
+CUDNN_HALF=1
+OPENCV=1
+AVX=0
+OPENMP=0
+LIBSO=1  
+ZED_CAMERA=0 
+ZED_CAMERA_v2_8=0 
+```
 
-  Highly recommended to build with GPU settings to get the improved performance.
+Highly recommended to build with GPU settings to get the improved performance.
 
 2. After doing these changes, just execute the following command from the root directory.
-  ```bash
-  make
-  ```
+```bash
+make
+```
 
 After build, you can find `darknet` and `libdarknet.so` in the root directory.
 
