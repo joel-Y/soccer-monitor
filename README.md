@@ -55,6 +55,7 @@ About Darknet framework: http://pjreddie.com/darknet/
 9. [How to improve object detection](#how-to-improve-object-detection)
 10. [How to mark bounded boxes of objects and create annotation files](#how-to-mark-bounded-boxes-of-objects-and-create-annotation-files)
 11. [How to use Yolo as DLL and SO libraries](#how-to-use-yolo-as-dll-and-so-libraries)
+12. [How to run Soccer Monitoring System](#how-to-run-soccer-monitoring-system)
 
 ![Darknet Logo](http://pjreddie.com/media/files/darknet-black-small.png) 
 
@@ -731,3 +732,69 @@ public:
 #endif
 };
 ```
+
+## How to run Soccer Monitoring System
+
+#### Installing Prerequisites
+You can refer to the [requirements](#requirements) section above.
+
+#### Downloading the System
+You can download using following command.
+```bash
+git clone https://github.com/AlexeyAB/darknet
+```
+
+#### Building the System using Make
+1. Open the `Makefile` file and set the flags as follows:
+
+  ** For CPU build **
+  ```ini
+  GPU=0
+  CUDNN=0
+  CUDNN_HALF=0
+  OPENCV=1
+  AVX=1
+  OPENMP=1
+  LIBSO=1  
+  ZED_CAMERA=0
+  ZED_CAMERA_v2_8=0 
+  ```
+
+  ** For GPU build **
+  ```ini
+  GPU=1
+  CUDNN=1
+  CUDNN_HALF=1
+  OPENCV=1
+  AVX=0
+  OPENMP=0
+  LIBSO=1  
+  ZED_CAMERA=0 
+  ZED_CAMERA_v2_8=0 
+  ```
+
+  Highly recommended to build with GPU settings to get the improved performance.
+
+2. After doing these changes, just execute the following command from the root directory.
+  ```bash
+  make
+  ```
+
+After build, you can find `darknet` and `libdarknet.so` in the root directory.
+
+#### Installing Dependencies 
+You can install package dependencies using pip.
+```bash
+pip install -r requirements.txt
+```
+
+If necessary, you can create a virtual environment before install packages to manage separate package installations.
+https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment
+
+#### Running Monitoring System
+You can run the monitoring system using following command.
+```bash
+python darknet_video.py --data_file ./custom/obj.data --config_file ./custom/yolov4-tiny-obj.cfg --weight ./weights/yolov4-tiny-obj.weights --thresh 0.5 --input ./test.mp4
+```
+
+You can set the team name and color in the `teams.json` file.
