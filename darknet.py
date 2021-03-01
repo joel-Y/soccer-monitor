@@ -159,15 +159,19 @@ def draw_boxes_team(detections, image, colors, teams):
             player_color = (player_color[0] / 255, player_color[1] / 255, player_color[2] / 255)
             player_lab = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(player_color))
 
-            delta1 = colour.delta_E(teams[0]['color_lab'], player_lab)
-            delta2 = colour.delta_E(teams[1]['color_lab'], player_lab)
+            delta1 = colour.delta_E(teams[0]['player_lab'], player_lab)
+            delta2 = colour.delta_E(teams[0]['goalkeeper_lab'], player_lab)
+            delta3 = colour.delta_E(teams[1]['player_lab'], player_lab)
+            delta4 = colour.delta_E(teams[1]['goalkeeper_lab'], player_lab)
 
-            if delta1 < delta2:
+            min_delta = min([delta1, delta2, delta3, delta4])
+
+            if min_delta == delta1 or min_delta == delta2:
                 label = teams[0]['name']
-                color = teams[0]['color']
-            else:
+                color = teams[0]['player_color']
+            elif min_delta == delta3 or min_delta == delta4:
                 label = teams[1]['name']
-                color = teams[1]['color']
+                color = teams[1]['player_color']
 
         elif label =='sports ball':
             color = (255, 255, 0)

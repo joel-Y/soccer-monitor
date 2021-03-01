@@ -1,10 +1,12 @@
 [
   {
-    "name": "Red",
-    "color": "(190, 0, 0)"
+    "name": "FSCI",
+    "player_color": "(190, 0, 0)",
+    "goalkeeper_color": "(254, 186, 95)"
   },
   {
-    "name": "White",
-    "color": "(255, 255, 255)"
+    "name": "U12",
+    "player_color": "(255, 255, 255)",
+    "goalkeeper_color": "(254, 81, 150)"
   }
 ]

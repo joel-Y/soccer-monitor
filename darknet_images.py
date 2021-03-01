@@ -232,10 +232,14 @@ def main():
     teams = json.loads(file.read())
     # Conver the team color to CIE L*a*b colour space
     for team in teams:
-        team['color'] = eval(team['color'])
-        team_color = (team['color'][0] / 255, team['color'][1] / 255, team['color'][2] / 255)
-        team['color_lab'] = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(team_color))
+        team['player_color'] = eval(team['player_color'])
+        player_color = (team['player_color'][0] / 255, team['player_color'][1] / 255, team['player_color'][2] / 255)
+        team['player_lab'] = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(player_color))
     
+        team['goalkeeper_color'] = eval(team['goalkeeper_color'])
+        goalkeeper_color = (team['goalkeeper_color'][0] / 255, team['goalkeeper_color'][1] / 255, team['goalkeeper_color'][2] / 255)
+        team['goalkeeper_lab'] = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(goalkeeper_color))
+
     images = load_images(args.input)
 
     index = 0
