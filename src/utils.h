@@ -99,6 +99,27 @@ unsigned long custom_hash(char *str);
 #define max_val_cmp(a,b) (((a) > (b)) ? (a) : (b))
 #define min_val_cmp(a,b) (((a) < (b)) ? (a) : (b))
 
+// team config structure 
+typedef struct color_rgb {
+    int r;
+    int g;
+    int b;
+} color_rgb;
+typedef struct color_lab {
+    double l;
+    double a;
+    double b;
+} color_lab;
+typedef struct team {
+    char name[256];
+    color_rgb player_color;
+    color_rgb goalkeeper_color;
+    color_lab player_color_lab;
+    color_lab goalkeeper_color_lab;
+} team;
+
+color_lab RGB2Lab(color_rgb rgb);
+
 #ifdef __cplusplus
 }
 #endif

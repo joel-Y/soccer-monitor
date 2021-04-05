@@ -247,6 +247,33 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
         //'W', 'M', 'V', '2'
     }
 
+    // Read teams.json
+    FILE *fp;
+    char buff[1024];
+    team teams[2];
+    
+    fp = fopen("teams.cfg", "r");
+    while (fgets(buff, sizeof(buff), fp) != NULL) {
+        if (strcmp(buff, "[team 1]\n") == 0) {
+            i = 0;
+        } else if (strcmp(buff, "[team 2]\n") == 0) {
+            i = 1;
+        }
+
+        if (strncmp(buff, "name=", 5) == 0) {
+            sscanf(buff + 5, "%s", teams[i].name);
+        }
+        else if (strncmp(buff, "player_color=", 13) == 0) {
+            sscanf(buff + 13, "%d,%d,%d", &teams[i].player_color.r, &teams[i].player_color.g, &teams[i].player_color.b);
+            teams[i].player_color_lab = RGB2Lab(teams[i].player_color);
+        }
+        else if (strncmp(buff, "goalkeeper_color=", 17) == 0) {
+            sscanf(buff + 17, "%d,%d,%d", &teams[i].goalkeeper_color.r, &teams[i].goalkeeper_color.g, &teams[i].goalkeeper_color.b);
+            teams[i].goalkeeper_color_lab = RGB2Lab(teams[i].goalkeeper_color);
+        }
+    }
+    fclose(fp);
+
     int send_http_post_once = 0;
     const double start_time_lim = get_time_point();
     double before = get_time_point();
@@ -296,7 +323,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
                 }
             }
 
-            if (!benchmark && !dontdraw_bbox) draw_detections_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output);
+            if (!benchmark && !dontdraw_bbox) draw_detections_team_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output, teams);
             free_detections(local_dets, local_nboxes);
 
             printf("\nFPS:%.1f \t AVG_FPS:%.1f\n", fps, avg_fps);

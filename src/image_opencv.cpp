@@ -872,6 +872,175 @@ extern "C" void save_cv_jpg(mat_cv *img_src, const char *name)
 // ----------------------------------------
 
 
+cv::Scalar BGR2Lab(cv::Scalar color)
+{
+    double r, g, b, x, y, z, l, alpha, beta;
+
+    b = color[0] / 255.0;
+    g = color[1] / 255.0;
+    r = color[2] / 255.0;
+
+    r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+    g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+    b = (b > 0.04045) ? pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+    x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+    y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
+    z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+
+    x = (x > 0.008856) ? pow(x, 1./3.) : (7.787 * x) + 16./116.;
+    y = (y > 0.008856) ? pow(y, 1./3.) : (7.787 * y) + 16./116.;
+    z = (z > 0.008856) ? pow(z, 1./3.) : (7.787 * z) + 16./116.;
+
+    //LMS to Lab
+    l = (116. * y) - 16.;
+    alpha = 500. * (x - y);
+    beta = 200. * (y - z);
+
+    return cv::Scalar(l, alpha, beta);
+}
+
+double deg2Rad(const double deg)
+{
+	return (deg * (M_PI / 180.0));
+}
+
+double rad2Deg(const double rad)
+{
+	return ((180.0 / M_PI) * rad);
+}
+
+double color_ciede2000(cv::Scalar lab1, cv::Scalar lab2)
+{
+	/* 
+	 * "For these and all other numerical/graphical 􏰀delta E00 values
+	 * reported in this article, we set the parametric weighting factors
+	 * to unity(i.e., k_L = k_C = k_H = 1.0)." (Page 27).
+	 */
+	const double k_L = 1.0, k_C = 1.0, k_H = 1.0;
+	const double deg360InRad = deg2Rad(360.0);
+	const double deg180InRad = deg2Rad(180.0);
+	const double pow25To7 = 6103515625.0; /* pow(25, 7) */
+	
+	/*
+	 * Step 1 
+	 */
+	/* Equation 2 */
+	double C1 = sqrt((lab1[1] * lab1[1]) + (lab1[2] * lab1[2]));
+	double C2 = sqrt((lab2[1] * lab2[1]) + (lab2[2] * lab2[2]));
+	/* Equation 3 */
+	double barC = (C1 + C2) / 2.0;
+	/* Equation 4 */
+	double G = 0.5 * (1 - sqrt(pow(barC, 7) / (pow(barC, 7) + pow25To7)));
+	/* Equation 5 */
+	double a1Prime = (1.0 + G) * lab1[1];
+	double a2Prime = (1.0 + G) * lab2[1];
+	/* Equation 6 */
+	double CPrime1 = sqrt((a1Prime * a1Prime) + (lab1[2] * lab1[2]));
+	double CPrime2 = sqrt((a2Prime * a2Prime) + (lab2[2] * lab2[2]));
+	/* Equation 7 */
+	double hPrime1;
+	if (lab1[2] == 0 && a1Prime == 0)
+		hPrime1 = 0.0;
+	else {
+		hPrime1 = atan2(lab1[2], a1Prime);
+		/* 
+		 * This must be converted to a hue angle in degrees between 0 
+		 * and 360 by addition of 2􏰏 to negative hue angles.
+		 */
+		if (hPrime1 < 0)
+			hPrime1 += deg360InRad;
+	}
+	double hPrime2;
+	if (lab2[2] == 0 && a2Prime == 0)
+		hPrime2 = 0.0;
+	else {
+		hPrime2 = atan2(lab2[2], a2Prime);
+		/* 
+		 * This must be converted to a hue angle in degrees between 0 
+		 * and 360 by addition of 2􏰏 to negative hue angles.
+		 */
+		if (hPrime2 < 0)
+			hPrime2 += deg360InRad;
+	}
+	
+	/*
+	 * Step 2
+	 */
+	/* Equation 8 */
+	double deltaLPrime = lab2[0] - lab1[0];
+	/* Equation 9 */
+	double deltaCPrime = CPrime2 - CPrime1;
+	/* Equation 10 */
+	double deltahPrime;
+	double CPrimeProduct = CPrime1 * CPrime2;
+	if (CPrimeProduct == 0)
+		deltahPrime = 0;
+	else {
+		/* Avoid the fabs() call */
+		deltahPrime = hPrime2 - hPrime1;
+		if (deltahPrime < -deg180InRad)
+			deltahPrime += deg360InRad;
+		else if (deltahPrime > deg180InRad)
+			deltahPrime -= deg360InRad;
+	}
+	/* Equation 11 */
+	double deltaHPrime = 2.0 * sqrt(CPrimeProduct) *
+	    sin(deltahPrime / 2.0);
+	
+	/*
+	 * Step 3
+	 */
+	/* Equation 12 */
+	double barLPrime = (lab1[0] + lab2[0]) / 2.0;
+	/* Equation 13 */
+	double barCPrime = (CPrime1 + CPrime2) / 2.0;
+	/* Equation 14 */
+	double barhPrime, hPrimeSum = hPrime1 + hPrime2;
+	if (CPrime1 * CPrime2 == 0) {
+		barhPrime = hPrimeSum;
+	} else {
+		if (fabs(hPrime1 - hPrime2) <= deg180InRad)
+			barhPrime = hPrimeSum / 2.0;
+		else {
+			if (hPrimeSum < deg360InRad)
+				barhPrime = (hPrimeSum + deg360InRad) / 2.0;
+			else
+				barhPrime = (hPrimeSum - deg360InRad) / 2.0;
+		}
+	}
+	/* Equation 15 */
+	double T = 1.0 - (0.17 * cos(barhPrime - deg2Rad(30.0))) +
+	    (0.24 * cos(2.0 * barhPrime)) +
+	    (0.32 * cos((3.0 * barhPrime) + deg2Rad(6.0))) - 
+	    (0.20 * cos((4.0 * barhPrime) - deg2Rad(63.0)));
+	/* Equation 16 */
+	double deltaTheta = deg2Rad(30.0) *
+	    exp(-pow((barhPrime - deg2Rad(275.0)) / deg2Rad(25.0), 2.0));
+	/* Equation 17 */
+	double R_C = 2.0 * sqrt(pow(barCPrime, 7.0) /
+	    (pow(barCPrime, 7.0) + pow25To7));
+	/* Equation 18 */
+	double S_L = 1 + ((0.015 * pow(barLPrime - 50.0, 2.0)) /
+	    sqrt(20 + pow(barLPrime - 50.0, 2.0)));
+	/* Equation 19 */
+	double S_C = 1 + (0.045 * barCPrime);
+	/* Equation 20 */
+	double S_H = 1 + (0.015 * barCPrime * T);
+	/* Equation 21 */
+	double R_T = (-sin(2.0 * deltaTheta)) * R_C;
+	
+	/* Equation 22 */
+	double deltaE = sqrt(
+	    pow(deltaLPrime / (k_L * S_L), 2.0) +
+	    pow(deltaCPrime / (k_C * S_C), 2.0) +
+	    pow(deltaHPrime / (k_H * S_H), 2.0) + 
+	    (R_T * (deltaCPrime / (k_C * S_C)) * (deltaHPrime / (k_H * S_H))));
+	
+	return (deltaE);
+}
+
+
 // ====================================================================
 // Draw Detection
 // ====================================================================
@@ -1004,6 +1173,189 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
                 cv::rectangle(*show_img, pt_text_bg1, pt_text_bg2, color, CV_FILLED, 8, 0);    // filled
                 cv::Scalar black_color = CV_RGB(0, 0, 0);
                 cv::putText(*show_img, labelstr, pt_text, cv::FONT_HERSHEY_COMPLEX_SMALL, font_size, black_color, 2 * font_size, CV_AA);
+                // cv::FONT_HERSHEY_COMPLEX_SMALL, cv::FONT_HERSHEY_SIMPLEX
+            }
+        }
+        if (ext_output) {
+            fflush(stdout);
+        }
+    }
+    catch (...) {
+        cerr << "OpenCV exception: draw_detections_cv_v3() \n";
+    }
+}
+
+extern "C" void draw_detections_team_cv_v3(mat_cv* mat, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output, team* teams)
+{
+    try {
+        cv::Mat *show_img = (cv::Mat*)mat;
+        int i, j;
+        if (!show_img) return;
+        static int frame_id = 0;
+        frame_id++;
+
+        for (i = 0; i < num; ++i) {
+            char labelstr[4096] = { 0 };
+            int class_id = -1;
+            for (j = 0; j < classes; ++j) {
+                int show = strncmp(names[j], "dont_show", 9);
+                if (dets[i].prob[j] > thresh && show) {
+                    if (class_id < 0) {
+                        strcat(labelstr, names[j]);
+                        class_id = j;
+                        char buff[20];
+                        if (dets[i].track_id) {
+                            sprintf(buff, " (id: %d)", dets[i].track_id);
+                            strcat(labelstr, buff);
+                        }
+                        sprintf(buff, " (%2.0f%%)", dets[i].prob[j] * 100);
+                        strcat(labelstr, buff);
+                        printf("%s: %.0f%% ", names[j], dets[i].prob[j] * 100);
+                        if (dets[i].track_id) printf("(track = %d, sim = %f) ", dets[i].track_id, dets[i].sim);
+                    }
+                    else {
+                        strcat(labelstr, ", ");
+                        strcat(labelstr, names[j]);
+                        printf(", %s: %.0f%% ", names[j], dets[i].prob[j] * 100);
+                    }
+                }
+            }
+            if (class_id >= 0) {
+                // int width = std::max(1.0f, show_img->rows * .002f);
+                int width = 1;
+
+                //if(0){
+                //width = pow(prob, 1./2.)*10+1;
+                //alphabet = 0;
+                //}
+
+                //printf("%d %s: %.0f%%\n", i, names[class_id], prob*100);
+                int offset = class_id * 123457 % classes;
+                float red = get_color(2, offset, classes);
+                float green = get_color(1, offset, classes);
+                float blue = get_color(0, offset, classes);
+                float rgb[3];
+
+                //width = prob*20+2;
+
+                rgb[0] = red;
+                rgb[1] = green;
+                rgb[2] = blue;
+                box b = dets[i].bbox;
+                if (std::isnan(b.w) || std::isinf(b.w)) b.w = 0.5;
+                if (std::isnan(b.h) || std::isinf(b.h)) b.h = 0.5;
+                if (std::isnan(b.x) || std::isinf(b.x)) b.x = 0.5;
+                if (std::isnan(b.y) || std::isinf(b.y)) b.y = 0.5;
+                b.w = (b.w < 1) ? b.w : 1;
+                b.h = (b.h < 1) ? b.h : 1;
+                b.x = (b.x < 1) ? b.x : 1;
+                b.y = (b.y < 1) ? b.y : 1;
+                //printf("%f %f %f %f\n", b.x, b.y, b.w, b.h);
+
+                int left = (b.x - b.w / 2.)*show_img->cols;
+                int right = (b.x + b.w / 2.)*show_img->cols;
+                int top = (b.y - b.h / 2.)*show_img->rows;
+                int bot = (b.y + b.h / 2.)*show_img->rows;
+
+                if (left < 0) left = 0;
+                if (right > show_img->cols - 1) right = show_img->cols - 1;
+                if (top < 0) top = 0;
+                if (bot > show_img->rows - 1) bot = show_img->rows - 1;
+
+                //int b_x_center = (left + right) / 2;
+                //int b_y_center = (top + bot) / 2;
+                //int b_width = right - left;
+                //int b_height = bot - top;
+                //sprintf(labelstr, "%d x %d - w: %d, h: %d", b_x_center, b_y_center, b_width, b_height);
+
+                float const font_size = show_img->rows / 1000.F;
+                cv::Size const text_size = cv::getTextSize(labelstr, cv::FONT_HERSHEY_COMPLEX_SMALL, font_size, 1, 0);
+                cv::Point pt1, pt2, pt_text, pt_text_bg1, pt_text_bg2;
+                pt1.x = left;
+                pt1.y = top;
+                pt2.x = right;
+                pt2.y = bot;
+                pt_text.x = left;
+                pt_text.y = top - 4;// 12;
+                pt_text_bg1.x = left;
+                pt_text_bg1.y = top - (3 + 18 * font_size);
+                pt_text_bg2.x = right;
+                if ((right - left) < text_size.width) pt_text_bg2.x = left + text_size.width;
+                pt_text_bg2.y = top;
+                cv::Scalar color;
+                color.val[0] = red * 256;
+                color.val[1] = green * 256;
+                color.val[2] = blue * 256;
+
+                // you should create directory: result_img
+                //static int copied_frame_id = -1;
+                //static IplImage* copy_img = NULL;
+                //if (copied_frame_id != frame_id) {
+                //    copied_frame_id = frame_id;
+                //    if(copy_img == NULL) copy_img = cvCreateImage(cvSize(show_img->width, show_img->height), show_img->depth, show_img->nChannels);
+                //    cvCopy(show_img, copy_img, 0);
+                //}
+                //static int img_id = 0;
+                //img_id++;
+                //char image_name[1024];
+                //sprintf(image_name, "result_img/img_%d_%d_%d_%s.jpg", frame_id, img_id, class_id, names[class_id]);
+                //CvRect rect = cvRect(pt1.x, pt1.y, pt2.x - pt1.x, pt2.y - pt1.y);
+                //cvSetImageROI(copy_img, rect);
+                //cvSaveImage(image_name, copy_img, 0);
+                //cvResetImageROI(copy_img);
+
+
+                // Detect team if object is player
+                cv::Scalar team1_player_color_lab(teams[0].player_color_lab.l, teams[0].player_color_lab.a, teams[0].player_color_lab.b);
+                cv::Scalar team1_goalkeeper_color_lab(teams[0].goalkeeper_color_lab.l, teams[0].goalkeeper_color_lab.a, teams[0].goalkeeper_color_lab.b);
+                cv::Scalar team2_player_color_lab(teams[1].player_color_lab.l, teams[1].player_color_lab.a, teams[1].player_color_lab.b);
+                cv::Scalar team2_goalkeeper_color_lab(teams[1].goalkeeper_color_lab.l, teams[1].goalkeeper_color_lab.a, teams[1].goalkeeper_color_lab.b);
+
+                if (class_id == 1) {
+                    int pleft = left + (right - left) * 0.2;
+                    int pright = left + (right - left) * 0.8;
+                    int ptop = top + (bot - top) * 0.1;
+                    int pbottom = top + (bot - top) * 0.6;
+
+                    // Get the image for player's body as similar as possible and calculate color distance between teams respectively
+                    cv::Rect rect(cv::Point(pleft, ptop), cv::Point(pright, pbottom));
+                    cv::Mat player_img = (*show_img)(rect);
+                    
+                    cv::Scalar pcolor = mean(player_img);
+                    cv::Scalar pcolor_lab = BGR2Lab(pcolor);
+
+                    double diff1 = color_ciede2000(team1_player_color_lab, pcolor_lab);
+                    double diff2 = color_ciede2000(team1_goalkeeper_color_lab, pcolor_lab);
+                    double diff3 = color_ciede2000(team2_player_color_lab, pcolor_lab);
+                    double diff4 = color_ciede2000(team2_goalkeeper_color_lab, pcolor_lab);
+
+                    double min_diff = std::min({diff1, diff2, diff3, diff4});
+
+                    if (min_diff == diff1 || min_diff == diff2) {
+                        sprintf(labelstr, "%s [%0.1f]", teams[0].name, dets[i].prob[class_id] * 100);
+                        color.val[0] = teams[0].player_color.b;
+                        color.val[1] = teams[0].player_color.g;
+                        color.val[2] = teams[0].player_color.r;
+                    } else if (min_diff == diff3 || min_diff == diff4) {
+                        sprintf(labelstr, "%s [%0.1f]", teams[1].name, dets[i].prob[class_id] * 100);
+                        color.val[0] = teams[1].player_color.b;
+                        color.val[1] = teams[1].player_color.g;
+                        color.val[2] = teams[1].player_color.r;
+                    }
+
+                    // char image_name[1024];
+                    // sprintf(image_name, "result_img/img_%d_%d.jpg", frame_id, i);
+                    // cv::imwrite(image_name, player_img);
+                }
+
+                cv::rectangle(*show_img, pt1, pt2, color, width, 8, 0);
+                if (ext_output)
+                    printf("\t(left_x: %4.0f   top_y: %4.0f   width: %4.0f   height: %4.0f)\n",
+                    (float)left, (float)top, b.w*show_img->cols, b.h*show_img->rows);
+                else
+                    printf("\n");
+
+                cv::putText(*show_img, labelstr, pt_text, cv::FONT_HERSHEY_COMPLEX_SMALL, font_size, color, 2 * font_size, CV_AA);
                 // cv::FONT_HERSHEY_COMPLEX_SMALL, cv::FONT_HERSHEY_SIMPLEX
             }
         }
